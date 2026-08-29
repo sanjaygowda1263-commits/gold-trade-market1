@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GOLD TRADE MARKET Admin</title>
+<style>
+body{margin:0;font-family:Arial;background:#f4f7fb;color:#172033}header{background:#101828;color:#fff;padding:18px;font-weight:800}
+main{max-width:1100px;margin:25px auto;padding:0 15px}.card{background:#fff;padding:22px;border-radius:15px;margin-bottom:18px;box-shadow:0 8px 25px #0001}
+input{width:100%;padding:12px;margin:7px 0 14px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box}
+button{padding:11px 15px;border:0;border-radius:8px;background:#175cd3;color:#fff;font-weight:700;margin:3px}.danger{background:#d92d20}
+.notice{padding:12px;background:#fff4e5;border-radius:8px}.success{background:#ecfdf3;color:#067647}
+.hidden{display:none}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;font-size:13px}
+@media(max-width:700px){table{display:block;overflow-x:auto;white-space:nowrap}}
+</style></head><body>
+<header>GOLD TRADE MARKET — ADMIN PANEL</header><main>
+<section id="login" class="card"><h1>Admin Login</h1>
+<label>Admin ID / Mobile</label><input id="adminId" inputmode="numeric">
+<label>Password</label><input id="adminPass" type="password">
+<button onclick="doLogin()">Login</button><div id="loginMsg"></div></section>
+<section id="panel" class="hidden"><div class="card"><h1>Payment Requests</h1>
+<button onclick="loadRequests()">Refresh</button><button class="danger" onclick="doLogout()">Logout</button>
+<div id="msg"></div></div><div class="card"><div id="requests">Loading...</div></div></section>
+</main>
+<script>
+const API=window.location.origin;
+let token=localStorage.getItem("gtm_admin_token");
+async function api(path,opt={}){opt.headers=Object.assign({"Content-Type":"application/json"},opt.headers||{});if(token)opt.headers.Authorization="Bearer "+token;let r=await fetch(API+"/api"+path,opt),d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||"Request failed");return d}
+function doLogin(){api("/admin/login",{method:"POST",body:JSON.stringify({id:adminId.value.trim(),password:adminPass.value})}).then(d=>{token=d.token;localStorage.setItem("gtm_admin_token",token);login.classList.add("hidden");panel.classList.remove("hidden");loadRequests()}).catch(e=>{loginMsg.className="notice";loginMsg.textContent=e.message})}
+async function loadRequests(){try{let d=await api("/admin/requests");requests.innerHTML=d.requests.length?'<table><tr><th>User</th><th>Phone</th><th>Amount</th><th>UTR</th><th>Proof</th><th>Status</th><th>Action</th></tr>'+d.requests.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(x.phone)+'</td><td>₹'+x.amount+'</td><td>'+esc(x.utr)+'</td><td>'+esc(x.proofName||"-")+'</td><td>'+esc(x.status)+'</td><td>'+(x.status==="pending"?'<button onclick="review('+x.id+',\'approve\')">Approve</button><button class="danger" onclick="review('+x.id+',\'reject\')">Reject</button>':"—")+'</td></tr>').join("")+'</table>':'<p>No requests.</p>'}catch(e){msg.className="notice";msg.textContent=e.message}}
+async function review(id,action){try{await api("/admin/requests/"+id,{method:"POST",body:JSON.stringify({action})});loadRequests()}catch(e){msg.className="notice";msg.textContent=e.message}}
+function doLogout(){localStorage.removeItem("gtm_admin_token");location.reload()}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+if(token){login.classList.add("hidden");panel.classList.remove("hidden");loadRequests()}
+</script></body></html>

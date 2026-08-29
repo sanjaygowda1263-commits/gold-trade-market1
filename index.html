@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GOLD TRADE MARKET</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+header{background:#101828;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:21px;font-weight:800}.badge{font-size:12px;background:#198754;padding:7px 10px;border-radius:20px}
+main{max-width:1050px;margin:30px auto;padding:0 16px}.card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 8px 30px #10182812;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}h1,h2{margin-top:0}
+label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}input{width:100%;padding:12px;border:1px solid #d0d5dd;border-radius:9px;font-size:15px}
+button{border:0;border-radius:9px;padding:12px 16px;font-weight:700;cursor:pointer;background:#175cd3;color:white;margin:4px}
+button.secondary{background:#eef4ff;color:#175cd3}button.danger{background:#d92d20}
+.notice{padding:14px;border-radius:10px;background:#fff4e5;margin:15px 0}.success{background:#ecfdf3;color:#067647}
+.hidden{display:none}.wallet{font-size:34px;font-weight:800}.active{color:#067647;font-weight:800}.inactive{color:#b42318;font-weight:800}
+.status{padding:10px;border-radius:9px;background:#f2f4f7}.small{font-size:12px;color:#667085}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid #eaecf0;font-size:13px}
+@media(max-width:600px){table{display:block;overflow-x:auto;white-space:nowrap}}
+</style>
+</head>
+<body>
+<header><div class="logo">GOLD TRADE MARKET</div><span class="badge">Secure Dashboard</span></header>
+<main>
+
+<section id="auth" class="card">
+<h1>Create Account / Login</h1>
+<div class="grid">
+<div><h2>Create Account</h2>
+<label>Name</label><input id="regName">
+<label>Phone</label><input id="regPhone" inputmode="numeric" maxlength="10">
+<label>Password</label><input id="regPass" type="password">
+<label>Confirm Password</label><input id="regConfirm" type="password">
+<br><button onclick="register()">Create Account</button></div>
+<div><h2>Login</h2>
+<label>Phone</label><input id="loginPhone" inputmode="numeric" maxlength="10">
+<label>Password</label><input id="loginPass" type="password">
+<br><button onclick="login()">Login</button></div>
+</div><div id="authMsg"></div>
+
+</section>
+
+<section id="dashboard" class="hidden">
+<div class="card"><h1>Welcome, <span id="userName"></span></h1>
+<div class="notice">Trading calls are provided by GOLD TRADE MARKET. Trading involves risk; no profit or accuracy is guaranteed.</div></div>
+
+<div class="grid">
+<div class="card"><h2>Subscription Wallet</h2><div class="wallet">₹<span id="wallet">0</span></div>
+<p>Status: <span id="status" class="inactive">INACTIVE</span></p><p class="small">Subscription: ₹5,000 / 30 days</p><p>Expiry: <span id="expiry">—</span></p></div>
+<div class="card"><h2>Direct UPI Payment</h2><p>UPI ID: <b>9345314633@SUPERYES</b></p>
+<button onclick="payUPI()">Pay ₹5,000 with UPI</button><button class="secondary" onclick="copyUPI()">Copy UPI ID</button></div>
+</div>
+
+<div class="card"><h2>Submit Payment</h2>
+<label>12-digit UTR</label><input id="utr" maxlength="12" inputmode="numeric" placeholder="12 digits">
+<label>Payment Proof</label><input id="proof" type="file" accept="image/*,.pdf">
+<br><button onclick="submitPayment()">Submit for Verification</button><div id="payMsg"></div></div>
+
+<div class="card"><h2>Payment Status</h2><div id="paymentState" class="status">No payment submitted.</div></div>
+<button class="danger" onclick="logout()">Logout</button>
+</section>
+
+</main>
+
+<script>
+const API=window.location.origin;
+let token=localStorage.getItem("gtm_token");
+let currentUser=null;
+
+function api(path,options={}) {
+  options.headers=Object.assign({"Content-Type":"application/json"},options.headers||{});
+  if(token) options.headers.Authorization="Bearer "+token;
+  return fetch(API+path,options).then(async r=>{let d={};try{d=await r.json()}catch{};if(!r.ok)throw new Error(d.error||"Request failed");return d});
+}
+function msg(id,text,ok=false){let e=document.getElementById(id);e.className="notice "+(ok?"success":"");e.textContent=text}
+async function register(){
+ const name=regName.value.trim(),phone=regPhone.value.trim(),password=regPass.value;
+ if(!name||!/^\d{10}$/.test(phone)||!password||password!==regConfirm.value)return msg("authMsg","Check name, 10-digit phone and matching passwords.");
+ try{await api("/api/register",{method:"POST",body:JSON.stringify({name,phone,password})});msg("authMsg","Account created. Please login.",true)}catch(e){msg("authMsg",e.message)}
+}
+async function login(){
+ try{let d=await api("/api/login",{method:"POST",body:JSON.stringify({phone:loginPhone.value.trim(),password:loginPass.value})});token=d.token;localStorage.setItem("gtm_token",token);showDashboard(d.user)}catch(e){msg("authMsg",e.message)}
+}
+function showDashboard(u){
+ currentUser=u;auth.classList.add("hidden");adminLogin.classList.add("hidden");dashboard.classList.remove("hidden");
+ userName.textContent=u.name;wallet.textContent=Number(u.wallet).toLocaleString("en-IN");
+ status.textContent=Number(u.wallet)>0?"ACTIVE":"INACTIVE";status.className=Number(u.wallet)>0?"active":"inactive";
+ expiry.textContent=u.expiry?new Date(u.expiry).toLocaleString():"—";
+ paymentState.textContent=u.paymentStatus==="pending"?"Payment pending admin verification.":u.paymentStatus==="approved"?"Payment approved — subscription active.":u.paymentStatus==="rejected"?"Payment rejected.":"No payment submitted.";
+}
+)});token=d.token;localStorage.setItem("gtm_token",token);adminLogin.classList.add("hidden");adminPanel.classList.remove("hidden");loadRequests()}catch(e){msg("adminMsg",e.message)}
+}
+requests.innerHTML="<table><tr><th>User</th><th>Phone</th><th>Amount</th><th>UTR</th><th>Proof</th><th>Status</th><th>Action</th></tr>"+
+ d.requests.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.phone)}</td><td>₹${x.amount}</td><td>${esc(x.utr)}</td><td>${esc(x.proofName||"-")}</td><td>${esc(x.status)}</td><td>${x.status==="pending"?`<button onclick="review(${x.id},'approve')">Approve</button><button class="danger" onclick="review(${x.id},'reject')">Reject</button>`:"—"}</td></tr>`).join("")+"</table>"
+ }catch(e){msg("adminMsg2",e.message)}
+}
+)});loadRequests()}catch(e){msg("adminMsg2",e.message)}}
+async function submitPayment(){
+ const utrVal=utr.value.trim(),file=proof.files[0];
+ if(!/^\d{12}$/.test(utrVal)||!file)return msg("payMsg","Enter exactly 12 UTR digits and attach payment proof.");
+ // Upload proof to server as base64 for this demo backend.
+ const reader=new FileReader();
+ reader.onload=async()=>{try{await api("/api/payment",{method:"POST",body:JSON.stringify({utr:utrVal,proofName:file.name,proofData:reader.result})});msg("payMsg","Payment submitted for admin verification.",true);paymentState.textContent="Payment pending admin verification."}catch(e){msg("payMsg",e.message)}};
+ reader.readAsDataURL(file);
+}
+function payUPI(){location.href="upi://pay?pa=9345314633@SUPERYES&pn=GOLD%20TRADE%20MARKET&am=5000&cu=INR&tn=Monthly%20Subscription"}
+function copyUPI(){navigator.clipboard?.writeText("9345314633@SUPERYES");alert("UPI ID copied.")}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function logout(){token=null;localStorage.removeItem("gtm_token");location.reload()}
+if(token){api("/api/me").then(d=>showDashboard(d.user)).catch(()=>{token=null;localStorage.removeItem("gtm_token")})}
+</script>
+</body>
+</html>
